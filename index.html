@@ -84,7 +84,7 @@
         console.log('Local face-api.min.js loaded');
       };
       fallbackScript.onerror = () => {
-        document.getElementById('diagnostic').textContent = 'Error: Local face-api.min.js failed to load. Ensure file is uploaded to server root.';
+        document.getElementById('diagnostic').textContent = 'Error: Local face-api.min.js failed to load. <a href="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.min.js" download>Download face-api.min.js</a> and upload to server root.';
         console.error('Local face-api.min.js failed to load');
       };
       document.head.appendChild(fallbackScript);
