@@ -72,11 +72,11 @@
     </div>
     <div id="diagnostic"></div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.min.js"></script>
   <script>
     // Fallback if CDN fails
     if (typeof faceapi === 'undefined') {
-      document.getElementById('diagnostic').textContent = 'Error: face-api.js CDN failed. Attempting to load local fallback...';
+      document.getElementById('diagnostic').textContent = 'Error: CDN failed. Attempting to load local face-api.min.js...';
       const fallbackScript = document.createElement('script');
       fallbackScript.src = '/face-api.min.js';
       fallbackScript.onload = () => {
