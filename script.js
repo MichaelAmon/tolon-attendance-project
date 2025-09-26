@@ -47,7 +47,7 @@ async function startLocationWatch() {
 
   console.log('Starting location watch...');
   if (navigator.geolocation) {
-    console.log('Geolocation is supported.');
+    console.log('Geolocation is supported. Requesting permission...');
     watchId = navigator.geolocation.watchPosition(
       (pos) => {
         console.log('Position updated:', pos.coords);
@@ -57,17 +57,22 @@ async function startLocationWatch() {
         status.textContent = office ? `At ${office}` : 'Outside office area';
         clockIn.disabled = !office;
         clockOut.disabled = !office;
+        diagnostic.textContent = ''; // Clear diagnostic on success
       },
       (error) => {
         console.error('Geolocation error:', error);
         status.textContent = `Error: ${error.message} (Code: ${error.code})`;
         clockIn.disabled = true;
         clockOut.disabled = true;
-        diagnostic.textContent = `Geolocation failed: ${error.message}`;
+        diagnostic.textContent = `Geolocation failed: ${error.message} (Code: ${error.code})`;
       },
-      { enableHighAccuracy: true, maximumAge: 10000 }
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
     );
     console.log('Watch position initialized, watchId:', watchId);
+    if (!watchId) {
+      console.error('Watch position failed to initialize.');
+      diagnostic.textContent = 'Geolocation watch failed to start.';
+    }
   } else {
     console.error('Geolocation not supported by this browser.');
     status.textContent = 'Geolocation not supported';
