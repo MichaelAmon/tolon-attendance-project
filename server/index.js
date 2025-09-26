@@ -50,8 +50,8 @@ function getOfficeName(lat, long) {
 
 // Placeholder face descriptors
 const faceDescriptors = {
-  'user1': [0.1, 0.2, 0.3, /* ... */], // Example descriptor for +233247877745
-  'user2': [0.4, 0.5, 0.6, /* ... */]  // Example descriptor for +233247877746
+  'user1': [0.1, 0.2, 0.3, /* ... */], // Example descriptor
+  'user2': [0.4, 0.5, 0.6, /* ... */]  // Example descriptor
 };
 
 app.post('/api/attendance/getFaceDescriptor', (req, res) => {
@@ -64,10 +64,10 @@ app.post('/api/attendance/getFaceDescriptor', (req, res) => {
 });
 
 app.post('/api/attendance/web', async (req, res) => {
-  const { phone, action, latitude, longitude, timestamp } = req.body;
-  console.log(`📥 Web attendance request: ${action} from ${phone}, ${latitude}, ${longitude}`);
+  const { action, latitude, longitude, timestamp } = req.body;
+  console.log(`📥 Web attendance request: ${action} at ${latitude}, ${longitude}`);
 
-  if (!phone || !action || isNaN(latitude) || isNaN(longitude)) {
+  if (!action || isNaN(latitude) || isNaN(longitude)) {
     return res.status(400).json({ success: false, message: 'Invalid input. Please try again!' });
   }
 
@@ -77,7 +77,7 @@ app.post('/api/attendance/web', async (req, res) => {
     const attendanceSheet = attendanceDoc.sheetsByTitle['Attendance Sheet'];
     const dateStr = new Date(timestamp).toISOString().split('T')[0];
     const rows = await attendanceSheet.getRows();
-    const userRow = rows.find(row => row.get('Phone') === phone && row.get('Time In')?.startsWith(dateStr));
+    const userRow = rows.find(row => row.get('Time In')?.startsWith(dateStr));
 
     if (action === 'clock in' && userRow && userRow.get('Time In')) {
       return res.json({ success: false, message: 'You have already clocked in today.' });
@@ -94,8 +94,7 @@ app.post('/api/attendance/web', async (req, res) => {
     if (action === 'clock in') {
       try {
         await attendanceSheet.addRow({
-          Name: 'Web User',
-          Phone: phone,
+          Name: 'Web User', // Update with actual name from face recognition if needed
           'Time In': timestamp,
           'Time Out': '',
           Location: officeName,
