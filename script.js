@@ -26,7 +26,7 @@ function getOfficeName(lat, long) {
 }
 
 let watchId = null;
-let video, canvas, popup, popupHeader, popupMessage, popupFooter;
+let video, canvas, popup, popupHeader, popupMessage, popupFooter, popupRetry;
 
 async function startLocationWatch() {
   const status = document.getElementById('status');
@@ -42,6 +42,7 @@ async function startLocationWatch() {
   popupHeader = document.getElementById('popupHeader');
   popupMessage = document.getElementById('popupMessage');
   popupFooter = document.getElementById('popupFooter');
+  popupRetry = document.getElementById('popupRetry');
 
   if (navigator.geolocation) {
     watchId = navigator.geolocation.watchPosition(
@@ -66,29 +67,54 @@ async function startLocationWatch() {
     clockOut.disabled = true;
   }
 
+  async function loadWeightsWithRetry(retries = 3) {
+    for (let i = 0; i < retries; i++) {
+      try {
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri('https://unpkg.com/face-api.js/weights'),
+          faceapi.nets.faceLandmark68Net.loadFromUri('https://unpkg.com/face-api.js/weights'),
+          faceapi.nets.faceRecognitionNet.loadFromUri('https://unpkg.com/face-api.js/weights')
+        ]);
+        return true;
+      } catch (err) {
+        console.error('Weights loading error:', err);
+        if (i === retries - 1) {
+          return false;
+        }
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
+      }
+    }
+  }
+
   async function startVideo() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
       video.srcObject = stream;
-      await faceapi.nets.tinyFaceDetector.loadFromUri('https://unpkg.com/face-api.js/weights');
-      await faceapi.nets.faceLandmark68Net.loadFromUri('https://unpkg.com/face-api.js/weights');
-      await faceapi.nets.faceRecognitionNet.loadFromUri('https://unpkg.com/face-api.js/weights');
+      const weightsLoaded = await loadWeightsWithRetry();
+      if (!weightsLoaded) {
+        throw new Error('Failed to load recognition models');
+      }
       faceMessage.textContent = 'Please face the camera...';
     } catch (err) {
+      console.error('Camera error:', err);
       faceMessage.textContent = 'Camera error. Try again.';
       popupHeader.textContent = 'Verification Unsuccessful';
-      popupMessage.textContent = 'Camera error. Try again!';
+      popupMessage.textContent = `Camera error. Try again. Details: ${err.name} - ${err.message}. Please allow camera access or check your device.`;
       popupFooter.textContent = `Clocked In/Out Date: ${new Date().toLocaleDateString()}`;
+      popupRetry.innerHTML = '<button onclick="retryCamera()">Retry Camera</button>';
       popup.style.display = 'block';
-      setTimeout(() => {
-        popup.style.display = 'none';
-        clockIn.disabled = false;
-        clockOut.disabled = false;
-        faceRecognition.style.display = 'none';
-      }, 3000);
+      clockIn.disabled = false;
+      clockOut.disabled = false;
+      faceRecognition.style.display = 'none';
       if (video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
     }
   }
+
+  window.retryCamera = async () => {
+    popup.style.display = 'none';
+    faceRecognition.style.display = 'block';
+    await startVideo();
+  };
 
   async function captureAndCompare() {
     const displaySize = { width: video.width, height: video.height };
@@ -137,6 +163,7 @@ async function startLocationWatch() {
     await startVideo();
 
     setTimeout(async () => {
+      if (faceMessage.textContent === 'Camera error. Try again.') return;
       const result = await captureAndCompare();
       if (result.success && result.name) {
         faceRecognition.style.display = 'none';
@@ -148,7 +175,7 @@ async function startLocationWatch() {
           popup.style.display = 'none';
           clockIn.disabled = false;
           clockOut.disabled = false;
-        }, 3000);
+        }, 5000);
         try {
           const response = await fetch('https://tolon-attendance.proodentit.com/api/attendance/web', {
             method: 'POST',
@@ -169,7 +196,7 @@ async function startLocationWatch() {
           message.textContent = `Error: ${error.message}. Try again!`;
           message.className = 'error';
         }
-      } else if (!result.success && faceMessage.textContent !== 'Camera error. Try again.') {
+      } else {
         faceRecognition.style.display = 'none';
         popupHeader.textContent = 'Verification Unsuccessful';
         popupMessage.textContent = 'Facial recognition failed. Please try again!';
@@ -179,7 +206,7 @@ async function startLocationWatch() {
           popup.style.display = 'none';
           clockIn.disabled = false;
           clockOut.disabled = false;
-        }, 3000);
+        }, 5000);
         if (video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
       }
     }, 3000);
