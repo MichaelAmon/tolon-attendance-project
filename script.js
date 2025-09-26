@@ -45,40 +45,27 @@ async function startLocationWatch() {
   popupRetry = document.getElementById('popupRetry');
   diagnostic = document.getElementById('diagnostic');
 
-  console.log('Starting location watch...');
   if (navigator.geolocation) {
-    console.log('Geolocation is supported. Requesting permission...');
     watchId = navigator.geolocation.watchPosition(
       (pos) => {
-        console.log('Position updated:', pos.coords);
         const { latitude, longitude } = pos.coords;
         location.textContent = `Location: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
         const office = getOfficeName(latitude, longitude);
         status.textContent = office ? `At ${office}` : 'Outside office area';
         clockIn.disabled = !office;
         clockOut.disabled = !office;
-        diagnostic.textContent = ''; // Clear diagnostic on success
       },
       (error) => {
-        console.error('Geolocation error:', error);
-        status.textContent = `Error: ${error.message} (Code: ${error.code})`;
+        status.textContent = `Error: ${error.message}`;
         clockIn.disabled = true;
         clockOut.disabled = true;
-        diagnostic.textContent = `Geolocation failed: ${error.message} (Code: ${error.code})`;
       },
-      { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
+      { enableHighAccuracy: true, maximumAge: 10000 }
     );
-    console.log('Watch position initialized, watchId:', watchId);
-    if (!watchId) {
-      console.error('Watch position failed to initialize.');
-      diagnostic.textContent = 'Geolocation watch failed to start.';
-    }
   } else {
-    console.error('Geolocation not supported by this browser.');
     status.textContent = 'Geolocation not supported';
     clockIn.disabled = true;
     clockOut.disabled = true;
-    diagnostic.textContent = 'Geolocation not supported by browser.';
   }
 
   async function loadWeightsWithRetry(retries = 5, delayMs = 3000) {
@@ -180,6 +167,11 @@ async function startLocationWatch() {
   async function handleClock(action) {
     const status = document.getElementById('status');
     const location = document.getElementById('location');
+    const clockIn = document.getElementById('clockIn');
+    const clockOut = document.getElementById('clockOut');
+    const message = document.getElementById('message');
+    const faceRecognition = document.getElementById('faceRecognition');
+
     const [latStr, lonStr] = location.textContent.replace('Location: ', '').split(', ');
     const latitude = parseFloat(latStr);
     const longitude = parseFloat(lonStr);
@@ -195,6 +187,7 @@ async function startLocationWatch() {
     await startVideo();
 
     setTimeout(async () => {
+      const faceMessage = document.getElementById('faceMessage');
       if (faceMessage.textContent === 'Camera error. Try again.') return;
       const result = await captureAndCompare();
       if (result.success && result.name) {
