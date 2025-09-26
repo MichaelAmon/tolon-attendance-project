@@ -72,7 +72,18 @@
     </div>
     <div id="diagnostic"></div>
   </div>
-  <script src="https://unpkg.com/face-api.js"></script>
+  <script src="https://unpkg.com/face-api.js@1.3.2/dist/face-api.min.js"></script>
+  <script>
+    // Fallback if CDN fails
+    if (typeof faceapi === 'undefined') {
+      document.getElementById('diagnostic').textContent = 'Error: face-api.js CDN failed. Attempting local fallback...';
+      const fallbackScript = document.createElement('script');
+      fallbackScript.src = '/face-api.min.js'; // Requires uploading face-api.min.js to server root
+      fallbackScript.onload = () => console.log('Local face-api.js loaded');
+      fallbackScript.onerror = () => document.getElementById('diagnostic').textContent = 'Error: Local face-api.js failed to load.';
+      document.head.appendChild(fallbackScript);
+    }
+  </script>
   <script src="script.js"></script>
 </body>
 </html>
