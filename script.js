@@ -45,9 +45,12 @@ async function startLocationWatch() {
   popupRetry = document.getElementById('popupRetry');
   diagnostic = document.getElementById('diagnostic');
 
+  console.log('Starting location watch...');
   if (navigator.geolocation) {
+    console.log('Geolocation is supported.');
     watchId = navigator.geolocation.watchPosition(
       (pos) => {
+        console.log('Position updated:', pos.coords);
         const { latitude, longitude } = pos.coords;
         location.textContent = `Location: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
         const office = getOfficeName(latitude, longitude);
@@ -56,16 +59,21 @@ async function startLocationWatch() {
         clockOut.disabled = !office;
       },
       (error) => {
-        status.textContent = `Error: ${error.message}`;
+        console.error('Geolocation error:', error);
+        status.textContent = `Error: ${error.message} (Code: ${error.code})`;
         clockIn.disabled = true;
         clockOut.disabled = true;
+        diagnostic.textContent = `Geolocation failed: ${error.message}`;
       },
       { enableHighAccuracy: true, maximumAge: 10000 }
     );
+    console.log('Watch position initialized, watchId:', watchId);
   } else {
+    console.error('Geolocation not supported by this browser.');
     status.textContent = 'Geolocation not supported';
     clockIn.disabled = true;
     clockOut.disabled = true;
+    diagnostic.textContent = 'Geolocation not supported by browser.';
   }
 
   async function loadWeightsWithRetry(retries = 5, delayMs = 3000) {
@@ -143,4 +151,107 @@ async function startLocationWatch() {
       faceMessage.textContent = 'No face detected. Try again!';
       return { success: false, name: null };
     }
-    const userFaceDescriptor = detections
+    const userFaceDescriptor = detections[0].descriptor;
+    const userMap = {
+      'user1': 'John Doe',
+      'user2': 'Jane Smith'
+    };
+    const response = await fetch('https://tolon-attendance.proodentit.com/api/attendance/getFaceDescriptor', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: Object.keys(userMap).find(key => userMap[key] === 'John Doe') || 'user1' })
+    });
+    const data = await response.json();
+    if (!data.success || !data.descriptor) {
+      faceMessage.textContent = 'No registered face found.';
+      return { success: false, name: null };
+    }
+    const registeredDescriptor = new Float32Array(data.descriptor);
+    const distance = faceapi.euclideanDistance(userFaceDescriptor, registeredDescriptor);
+    const username = Object.keys(userMap).find(key => data.descriptor === faceDescriptors[key]);
+    return { success: distance < 0.6, name: username ? userMap[username] : null };
+  }
+
+  async function handleClock(action) {
+    const status = document.getElementById('status');
+    const location = document.getElementById('location');
+    const [latStr, lonStr] = location.textContent.replace('Location: ', '').split(', ');
+    const latitude = parseFloat(latStr);
+    const longitude = parseFloat(lonStr);
+    if (isNaN(latitude) || isNaN(longitude)) {
+      message.textContent = 'Location not loaded yet. Try again!';
+      message.className = 'error';
+      return;
+    }
+    status.textContent = `Processing ${action}...`;
+    clockIn.disabled = true;
+    clockOut.disabled = true;
+    faceRecognition.style.display = 'block';
+    await startVideo();
+
+    setTimeout(async () => {
+      if (faceMessage.textContent === 'Camera error. Try again.') return;
+      const result = await captureAndCompare();
+      if (result.success && result.name) {
+        faceRecognition.style.display = 'none';
+        popupHeader.textContent = 'Verification Successful';
+        popupMessage.textContent = `Thank you ${result.name}, you have ${action} successfully at ${new Date().toLocaleTimeString()}`;
+        popupFooter.textContent = `Clocked ${action.replace(' ', '')} Date: ${new Date().toLocaleDateString()}`;
+        popup.style.display = 'block';
+        setTimeout(() => {
+          popup.style.display = 'none';
+          clockIn.disabled = false;
+          clockOut.disabled = false;
+        }, 5000);
+        try {
+          const response = await fetch('https://tolon-attendance.proodentit.com/api/attendance/web', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action,
+              latitude,
+              longitude,
+              timestamp: new Date().toISOString()
+            })
+          });
+          const data = await response.json();
+          if (!data.success) {
+            message.textContent = data.message;
+            message.className = 'error';
+          }
+        } catch (error) {
+          message.textContent = `Error: ${error.message}. Try again!`;
+          message.className = 'error';
+        }
+      } else {
+        faceRecognition.style.display = 'none';
+        popupHeader.textContent = 'Verification Unsuccessful';
+        popupMessage.textContent = 'Facial recognition failed. Please try again!';
+        popupFooter.textContent = `Clocked ${action.replace(' ', '')} Date: ${new Date().toLocaleDateString()}`;
+        popup.style.display = 'block';
+        setTimeout(() => {
+          popup.style.display = 'none';
+          clockIn.disabled = false;
+          clockOut.disabled = false;
+        }, 5000);
+        if (video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
+      }
+    }, 3000);
+  }
+
+  document.getElementById('clockIn').addEventListener('click', () => handleClock('clock in'));
+  document.getElementById('clockOut').addEventListener('click', () => handleClock('clock out'));
+}
+
+// Ensure faceapi is loaded before initializing
+if (typeof faceapi !== 'undefined') {
+  window.onload = startLocationWatch;
+} else {
+  console.error('face-api.js failed to load. Check network or script tag.');
+  document.getElementById('diagnostic').textContent = 'Error: face-api.js failed to load. Check network or script tag.';
+}
+
+window.onunload = () => {
+  if (watchId) navigator.geolocation.clearWatch(watchId);
+  if (video && video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
+};
