@@ -50,8 +50,8 @@ function getOfficeName(lat, long) {
 
 // Placeholder face descriptors
 const faceDescriptors = {
-  'user1': [0.1, 0.2, 0.3, /* ... */], // Example descriptor
-  'user2': [0.4, 0.5, 0.6, /* ... */]  // Example descriptor
+  'user1': [0.1, 0.2, 0.3, /* ... */],
+  'user2': [0.4, 0.5, 0.6, /* ... */]
 };
 
 app.post('/api/attendance/getFaceDescriptor', (req, res) => {
@@ -94,7 +94,7 @@ app.post('/api/attendance/web', async (req, res) => {
     if (action === 'clock in') {
       try {
         await attendanceSheet.addRow({
-          Name: 'Web User', // Update with actual name from face recognition if needed
+          Name: 'Web User',
           'Time In': timestamp,
           'Time Out': '',
           Location: officeName,
