@@ -76,12 +76,12 @@ async function startLocationWatch() {
     }
     for (let i = 0; i < retries; i++) {
       try {
-        console.log(`Attempt ${i + 1} to load weights from https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/weights`);
+        console.log(`Attempt ${i + 1} to load weights from /weights`);
         diagnostic.textContent = `Loading weights (Attempt ${i + 1}/${retries})...`;
         await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/weights'),
-          faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/weights'),
-          faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/weights')
+          faceapi.nets.tinyFaceDetector.loadFromUri('/weights'),
+          faceapi.nets.faceLandmark68Net.loadFromUri('/weights'),
+          faceapi.nets.faceRecognitionNet.loadFromUri('/weights')
         ]);
         console.log('Weights loaded successfully');
         diagnostic.textContent = 'Weights loaded successfully';
@@ -114,7 +114,7 @@ async function startLocationWatch() {
       console.error('Camera/video error:', err);
       faceMessage.textContent = 'Camera error. Try again.';
       popupHeader.textContent = 'Verification Unsuccessful';
-      popupMessage.textContent = `Camera error. Try again. Details: ${err.name} - ${err.message}. <a href="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/weights" download>Download weights</a> and upload to server, or check network.`;
+      popupMessage.textContent = `Camera error. Try again. Details: ${err.name} - ${err.message}. <a href="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/weights" download>Download weights</a> and upload to /weights folder on server, or check network.`;
       popupFooter.textContent = `Clocked In/Out Date: ${new Date().toLocaleDateString()}`;
       popupRetry.innerHTML = '<button onclick="retryCamera()">Retry Camera</button>';
       popup.style.display = 'block';
