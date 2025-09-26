@@ -26,7 +26,7 @@ function getOfficeName(lat, long) {
 }
 
 let watchId = null;
-let video, canvas, popup, popupHeader, popupMessage, popupFooter, popupRetry;
+let video, canvas, popup, popupHeader, popupMessage, popupFooter, popupRetry, diagnostic;
 
 async function startLocationWatch() {
   const status = document.getElementById('status');
@@ -43,6 +43,7 @@ async function startLocationWatch() {
   popupMessage = document.getElementById('popupMessage');
   popupFooter = document.getElementById('popupFooter');
   popupRetry = document.getElementById('popupRetry');
+  diagnostic = document.getElementById('diagnostic');
 
   if (navigator.geolocation) {
     watchId = navigator.geolocation.watchPosition(
@@ -67,21 +68,26 @@ async function startLocationWatch() {
     clockOut.disabled = true;
   }
 
-  async function loadWeightsWithRetry(retries = 3) {
+  async function loadWeightsWithRetry(retries = 5, delayMs = 3000) {
     for (let i = 0; i < retries; i++) {
       try {
+        console.log(`Attempt ${i + 1} to load weights from https://unpkg.com/face-api.js/weights`);
+        diagnostic.textContent = `Loading weights (Attempt ${i + 1}/${retries})...`;
         await Promise.all([
           faceapi.nets.tinyFaceDetector.loadFromUri('https://unpkg.com/face-api.js/weights'),
           faceapi.nets.faceLandmark68Net.loadFromUri('https://unpkg.com/face-api.js/weights'),
           faceapi.nets.faceRecognitionNet.loadFromUri('https://unpkg.com/face-api.js/weights')
         ]);
+        console.log('Weights loaded successfully');
+        diagnostic.textContent = 'Weights loaded successfully';
         return true;
       } catch (err) {
-        console.error('Weights loading error:', err);
+        console.error(`Weights loading attempt ${i + 1} failed:`, err);
+        diagnostic.textContent = `Weights load failed (Attempt ${i + 1}/${retries}): ${err.message}`;
         if (i === retries - 1) {
           return false;
         }
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
+        await new Promise(resolve => setTimeout(resolve, delayMs)); // Increased delay to 3 seconds
       }
     }
   }
@@ -90,16 +96,17 @@ async function startLocationWatch() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
       video.srcObject = stream;
+      video.play();
       const weightsLoaded = await loadWeightsWithRetry();
       if (!weightsLoaded) {
-        throw new Error('Failed to load recognition models');
+        throw new Error('Failed to load recognition models after multiple attempts');
       }
       faceMessage.textContent = 'Please face the camera...';
     } catch (err) {
-      console.error('Camera error:', err);
+      console.error('Camera/video error:', err);
       faceMessage.textContent = 'Camera error. Try again.';
       popupHeader.textContent = 'Verification Unsuccessful';
-      popupMessage.textContent = `Camera error. Try again. Details: ${err.name} - ${err.message}. Please allow camera access or check your device.`;
+      popupMessage.textContent = `Camera error. Try again. Details: ${err.name} - ${err.message}. Check network or contact support.`;
       popupFooter.textContent = `Clocked In/Out Date: ${new Date().toLocaleDateString()}`;
       popupRetry.innerHTML = '<button onclick="retryCamera()">Retry Camera</button>';
       popup.style.display = 'block';
@@ -117,7 +124,7 @@ async function startLocationWatch() {
   };
 
   async function captureAndCompare() {
-    const displaySize = { width: video.width, height: video.height };
+    const displaySize = { width: video.videoWidth, height: video.videoHeight };
     faceapi.matchDimensions(canvas, displaySize);
     const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors();
     if (detections.length === 0) {
