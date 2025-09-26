@@ -69,6 +69,11 @@ async function startLocationWatch() {
   }
 
   async function loadWeightsWithRetry(retries = 5, delayMs = 3000) {
+    if (typeof faceapi === 'undefined') {
+      console.error('face-api.js library not loaded');
+      diagnostic.textContent = 'Error: face-api.js library not loaded. Check network or script tag.';
+      return false;
+    }
     for (let i = 0; i < retries; i++) {
       try {
         console.log(`Attempt ${i + 1} to load weights from https://unpkg.com/face-api.js/weights`);
@@ -94,6 +99,9 @@ async function startLocationWatch() {
 
   async function startVideo() {
     try {
+      if (typeof faceapi === 'undefined') {
+        throw new Error('face-api.js library not available');
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
       video.srcObject = stream;
       video.play();
@@ -124,6 +132,10 @@ async function startLocationWatch() {
   };
 
   async function captureAndCompare() {
+    if (typeof faceapi === 'undefined') {
+      faceMessage.textContent = 'Face recognition library unavailable.';
+      return { success: false, name: null };
+    }
     const displaySize = { width: video.videoWidth, height: video.videoHeight };
     faceapi.matchDimensions(canvas, displaySize);
     const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors();
@@ -223,7 +235,13 @@ async function startLocationWatch() {
   document.getElementById('clockOut').addEventListener('click', () => handleClock('clock out'));
 }
 
-window.onload = startLocationWatch;
+// Ensure faceapi is loaded before initializing
+if (typeof faceapi !== 'undefined') {
+  window.onload = startLocationWatch;
+} else {
+  console.error('face-api.js failed to load. Check network or script tag.');
+  document.getElementById('diagnostic').textContent = 'Error: face-api.js failed to load. Check network or script tag.';
+}
 
 window.onunload = () => {
   if (watchId) navigator.geolocation.clearWatch(watchId);
