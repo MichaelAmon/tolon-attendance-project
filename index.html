@@ -5,16 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tolon District Assembly\nStaff Attendance Management</title>
   <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/face-api.js"></script>
 </head>
 <body>
   <div class="container">
     <h1><span style="font-size: 2em;">Tolon District Assembly</span><br><span style="font-size: 1.2em;">Staff Attendance Management</span></h1>
-    <p id="status">Checking location...</p>
-    <p id="location">Location: Loading...</p>
-    <input type="tel" id="phone" placeholder="Enter your phone (e.g., +233247877745)" required>
-    <button id="clockIn" disabled>Clock In</button>
-    <button id="clockOut" disabled>Clock Out</button>
-    <p id="message"></p>
+    <div id="loginSection" style="display: block;">
+      <p id="status">Checking location...</p>
+      <p id="location">Location: Loading...</p>
+      <input type="text" id="username" placeholder="Enter username" required>
+      <input type="password" id="password" placeholder="Enter password" required>
+      <button id="login">Login</button>
+      <p id="loginMessage"></p>
+    </div>
+    <div id="attendanceSection" style="display: none;">
+      <input type="tel" id="phone" placeholder="Enter your phone (e.g., +233247877745)" required>
+      <button id="clockIn" disabled>Clock In</button>
+      <button id="clockOut" disabled>Clock Out</button>
+      <p id="message"></p>
+      <div id="faceRecognition" style="display: none;">
+        <video id="video" width="640" height="480" autoplay></video>
+        <canvas id="canvas" width="640" height="480"></canvas>
+        <p id="faceMessage"></p>
+      </div>
+    </div>
   </div>
   <script src="script.js"></script>
 </body>
