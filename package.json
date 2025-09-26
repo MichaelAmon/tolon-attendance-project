@@ -1,0 +1,21 @@
+{
+  "name": "attendance-project",
+  "version": "1.0.1",
+  "type": "module",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^17.2.2",
+    "express": "^4.18.2",
+    "google-spreadsheet": "^5.0.2",
+    "google-auth-library": "^9.7.0"
+  }
+}
