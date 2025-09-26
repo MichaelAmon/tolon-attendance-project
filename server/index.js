@@ -51,4 +51,82 @@ function getOfficeName(lat, long) {
 // Placeholder face descriptors
 const faceDescriptors = {
   'user1': [0.1, 0.2, 0.3, /* ... */], // Example descriptor for +233247877745
-  'user2': [0.4, 0.5, 0.6, /* ... 
+  'user2': [0.4, 0.5, 0.6, /* ... */]  // Example descriptor for +233247877746
+};
+
+app.post('/api/attendance/getFaceDescriptor', (req, res) => {
+  const { username } = req.body;
+  if (faceDescriptors[username]) {
+    res.json({ success: true, descriptor: faceDescriptors[username] });
+  } else {
+    res.json({ success: false, message: 'No face data for this user' });
+  }
+});
+
+app.post('/api/attendance/web', async (req, res) => {
+  const { phone, action, latitude, longitude, timestamp } = req.body;
+  console.log(`📥 Web attendance request: ${action} from ${phone}, ${latitude}, ${longitude}`);
+
+  if (!phone || !action || isNaN(latitude) || isNaN(longitude)) {
+    return res.status(400).json({ success: false, message: 'Invalid input. Please try again!' });
+  }
+
+  try {
+    const attendanceDoc = new GoogleSpreadsheet(process.env.ATTENDANCE_SHEET_ID, serviceAccountAuth);
+    await attendanceDoc.loadInfo();
+    const attendanceSheet = attendanceDoc.sheetsByTitle['Attendance Sheet'];
+    const dateStr = new Date(timestamp).toISOString().split('T')[0];
+    const rows = await attendanceSheet.getRows();
+    const userRow = rows.find(row => row.get('Phone') === phone && row.get('Time In')?.startsWith(dateStr));
+
+    if (action === 'clock in' && userRow && userRow.get('Time In')) {
+      return res.json({ success: false, message: 'You have already clocked in today.' });
+    }
+    if (action === 'clock out' && (!userRow || !userRow.get('Time In') || userRow.get('Time Out'))) {
+      return res.json({ success: false, message: 'No clock-in found for today or already clocked out.' });
+    }
+
+    const officeName = getOfficeName(latitude, longitude);
+    if (!officeName) {
+      return res.json({ success: false, message: 'Invalid location. Please try again from an office!' });
+    }
+
+    if (action === 'clock in') {
+      try {
+        await attendanceSheet.addRow({
+          Name: 'Web User',
+          Phone: phone,
+          'Time In': timestamp,
+          'Time Out': '',
+          Location: officeName,
+          Department: 'Web'
+        });
+        console.log('✅ Row added to Attendance Sheet');
+        return res.json({ success: true, message: `Clocked in successfully at ${timestamp} at ${officeName}!` });
+      } catch (rowError) {
+        console.error('❌ Failed to add row:', rowError.message);
+        return res.status(500).json({ success: false, message: `Error saving to sheet: ${rowError.message}. Contact admin!` });
+      }
+    } else if (action === 'clock out') {
+      if (userRow) {
+        try {
+          userRow.set('Time Out', timestamp);
+          userRow.set('Location', officeName);
+          await userRow.save();
+          console.log('✅ Row updated with Time Out');
+          return res.json({ success: true, message: `Clocked out successfully at ${timestamp} at ${officeName}!` });
+        } catch (rowError) {
+          console.error('❌ Failed to update row:', rowError.message);
+          return res.status(500).json({ success: false, message: `Error updating sheet: ${rowError.message}. Contact admin!` });
+        }
+      }
+    }
+  } catch (error) {
+    console.error('❌ Web attendance error:', error.message);
+    return res.status(500).json({ success: false, message: `Server error: ${error.message}. Please try again or contact admin!` });
+  }
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🎉 Web attendance server running on http://0.0.0.0:${PORT}`);
+});
