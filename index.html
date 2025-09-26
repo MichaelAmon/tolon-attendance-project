@@ -6,13 +6,29 @@
   <title>Tolon District Assembly\nStaff Attendance Management</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://unpkg.com/face-api.js"></script>
+  <style>
+    .popup {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 20px;
+      border: 1px solid #ccc;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      z-index: 1000;
+      text-align: center;
+    }
+    .popup-header { font-size: 1.5em; font-weight: bold; }
+    .popup-footer { font-size: 0.8em; color: #555; margin-top: 10px; }
+  </style>
 </head>
 <body>
   <div class="container">
-    <h1><span style="font-size: 1.5em;">Tolon District Assembly</span><br><span style="font-size: 1em;">Staff Attendance Management</span></h1>
+    <h1><span style="font-size: 1.2em;">Tolon District Assembly</span><br><span style="font-size: 0.8em;">Staff Attendance Management</span></h1>
     <p id="status">Checking location...</p>
     <p id="location">Location: Loading...</p>
-    <input type="tel" id="phone" placeholder="Enter your phone (e.g., +233247877745)" required>
     <button id="clockIn" disabled>Clock In</button>
     <button id="clockOut" disabled>Clock Out</button>
     <p id="message"></p>
@@ -20,6 +36,11 @@
       <video id="video" width="640" height="480" autoplay></video>
       <canvas id="canvas" width="640" height="480"></canvas>
       <p id="faceMessage"></p>
+    </div>
+    <div id="popup" class="popup">
+      <div class="popup-header" id="popupHeader"></div>
+      <div id="popupMessage"></div>
+      <div class="popup-footer" id="popupFooter"></div>
     </div>
   </div>
   <script src="script.js"></script>
