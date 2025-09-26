@@ -26,16 +26,13 @@ function getOfficeName(lat, long) {
 }
 
 let watchId = null;
-let isLoggedIn = false;
-let video, canvas, faceMatcher;
+let video, canvas;
 
 async function startLocationWatch() {
   const status = document.getElementById('status');
   const location = document.getElementById('location');
   const clockIn = document.getElementById('clockIn');
   const clockOut = document.getElementById('clockOut');
-  const loginSection = document.getElementById('loginSection');
-  const attendanceSection = document.getElementById('attendanceSection');
   video = document.getElementById('video');
   canvas = document.getElementById('canvas');
   const faceMessage = document.getElementById('faceMessage');
@@ -49,54 +46,21 @@ async function startLocationWatch() {
         location.textContent = `Location: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
         const office = getOfficeName(latitude, longitude);
         status.textContent = office ? `At ${office}` : 'Outside office area';
-        if (isLoggedIn) {
-          clockIn.disabled = !office;
-          clockOut.disabled = !office;
-        }
+        clockIn.disabled = !office;
+        clockOut.disabled = !office;
       },
       (error) => {
         status.textContent = `Error: ${error.message}`;
-        if (isLoggedIn) {
-          clockIn.disabled = true;
-          clockOut.disabled = true;
-        }
+        clockIn.disabled = true;
+        clockOut.disabled = true;
       },
       { enableHighAccuracy: true, maximumAge: 10000 }
     );
   } else {
     status.textContent = 'Geolocation not supported';
-    if (isLoggedIn) {
-      clockIn.disabled = true;
-      clockOut.disabled = true;
-    }
+    clockIn.disabled = true;
+    clockOut.disabled = true;
   }
-
-  document.getElementById('login').addEventListener('click', async () => {
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
-    const loginMessage = document.getElementById('loginMessage');
-
-    try {
-      const response = await fetch('https://tolon-attendance.proodentit.com/api/attendance/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      const data = await response.json();
-      loginMessage.textContent = data.message;
-      if (data.success) {
-        isLoggedIn = true;
-        loginSection.style.display = 'none';
-        attendanceSection.style.display = 'block';
-        loginMessage.className = '';
-      } else {
-        loginMessage.className = 'error';
-      }
-    } catch (error) {
-      loginMessage.textContent = `Error: ${error.message}. Try again!`;
-      loginMessage.className = 'error';
-    }
-  });
 
   async function startVideo() {
     try {
@@ -115,7 +79,7 @@ async function startLocationWatch() {
     }
   }
 
-  async function captureAndCompare(username) {
+  async function captureAndCompare(phone) {
     const displaySize = { width: video.width, height: video.height };
     faceapi.matchDimensions(canvas, displaySize);
     const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors();
@@ -124,6 +88,16 @@ async function startLocationWatch() {
       return false;
     }
     const userFaceDescriptor = detections[0].descriptor;
+    // Map phone to username (hardcoded for now)
+    const phoneToUsername = {
+      '+233247877745': 'user1',
+      '+233247877746': 'user2'
+    };
+    const username = phoneToUsername[phone];
+    if (!username) {
+      faceMessage.textContent = 'Unknown phone number. Register first!';
+      return false;
+    }
     const response = await fetch('https://tolon-attendance.proodentit.com/api/attendance/getFaceDescriptor', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -140,84 +114,8 @@ async function startLocationWatch() {
   }
 
   async function handleClock(action) {
-    if (!isLoggedIn) {
-      message.textContent = 'Please log in first!';
-      return;
-    }
     const status = document.getElementById('status');
     const location = document.getElementById('location');
     const phone = document.getElementById('phone').value;
-    const username = document.getElementById('username').value; // Use logged-in username
     if (!phone) {
-      message.textContent = 'Please enter your phone';
-      message.className = 'error';
-      return;
-    }
-    const [latStr, lonStr] = location.textContent.replace('Location: ', '').split(', ');
-    const latitude = parseFloat(latStr);
-    const longitude = parseFloat(lonStr);
-    if (isNaN(latitude) || isNaN(longitude)) {
-      message.textContent = 'Location not loaded yet. Try again!';
-      message.className = 'error';
-      return;
-    }
-    status.textContent = `Processing ${action}...`;
-    clockIn.disabled = true;
-    clockOut.disabled = true;
-    faceRecognition.style.display = 'block';
-    await startVideo();
-
-    // Automatically capture and compare after a short delay
-    setTimeout(async () => {
-      const isMatch = await captureAndCompare(username);
-      if (isMatch) {
-        faceRecognition.style.display = 'none';
-        try {
-          const response = await fetch('https://tolon-attendance.proodentit.com/api/attendance/web', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phone,
-              action,
-              latitude,
-              longitude,
-              timestamp: new Date().toISOString()
-            })
-          });
-          const data = await response.json();
-          message.textContent = data.message;
-          message.className = data.success ? '' : 'error';
-          if (!data.success) {
-            clockIn.disabled = false;
-            clockOut.disabled = false;
-          }
-        } catch (error) {
-          message.textContent = `Error: ${error.message}. Try again!`;
-          message.className = 'error';
-          clockIn.disabled = false;
-          clockOut.disabled = false;
-        }
-      } else {
-        faceMessage.textContent = 'Face does not match. Access denied!';
-        message.textContent = 'Facial recognition failed. Try again!';
-        message.className = 'error';
-        clockIn.disabled = false;
-        clockOut.disabled = false;
-        if (video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
-        faceRecognition.style.display = 'none';
-      }
-    }, 3000); // 3-second delay to allow user to face the camera
-  }
-
-  document.getElementById('clockIn').addEventListener('click', () => handleClock('clock in'));
-  document.getElementById('clockOut').addEventListener('click', () => handleClock('clock out'));
-}
-
-// Start location watch when page loads
-window.onload = startLocationWatch;
-
-// Clean up on page unload
-window.onunload = () => {
-  if (watchId) navigator.geolocation.clearWatch(watchId);
-  if (video && video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
-};
+      message.textContent = 'Please enter
