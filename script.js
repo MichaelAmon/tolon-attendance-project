@@ -75,11 +75,18 @@ async function startLocationWatch() {
       await faceapi.nets.faceRecognitionNet.loadFromUri('https://unpkg.com/face-api.js/weights');
       faceMessage.textContent = 'Please face the camera...';
     } catch (err) {
-      faceMessage.textContent = `Error accessing camera: ${err.message}`;
-      message.textContent = `Camera error. Try again!`;
-      message.className = 'error';
-      clockIn.disabled = false;
-      clockOut.disabled = false;
+      faceMessage.textContent = 'Camera error. Try again.';
+      popupHeader.textContent = 'Verification Unsuccessful';
+      popupMessage.textContent = 'Camera error. Try again!';
+      popupFooter.textContent = `Clocked In/Out Date: ${new Date().toLocaleDateString()}`;
+      popup.style.display = 'block';
+      setTimeout(() => {
+        popup.style.display = 'none';
+        clockIn.disabled = false;
+        clockOut.disabled = false;
+        faceRecognition.style.display = 'none';
+      }, 3000);
+      if (video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
     }
   }
 
@@ -92,7 +99,6 @@ async function startLocationWatch() {
       return { success: false, name: null };
     }
     const userFaceDescriptor = detections[0].descriptor;
-    // Map usernames to names (hardcoded for now)
     const userMap = {
       'user1': 'John Doe',
       'user2': 'Jane Smith'
@@ -100,7 +106,7 @@ async function startLocationWatch() {
     const response = await fetch('https://tolon-attendance.proodentit.com/api/attendance/getFaceDescriptor', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: Object.keys(userMap).find(key => userMap[key] === 'John Doe') || 'user1' }) // Default to first user
+      body: JSON.stringify({ username: Object.keys(userMap).find(key => userMap[key] === 'John Doe') || 'user1' })
     });
     const data = await response.json();
     if (!data.success || !data.descriptor) {
@@ -110,7 +116,7 @@ async function startLocationWatch() {
     const registeredDescriptor = new Float32Array(data.descriptor);
     const distance = faceapi.euclideanDistance(userFaceDescriptor, registeredDescriptor);
     const username = Object.keys(userMap).find(key => data.descriptor === faceDescriptors[key]);
-    return { success: distance < 0.6, name: username ? userMap[username] : null }; // Adjust threshold as needed
+    return { success: distance < 0.6, name: username ? userMap[username] : null };
   }
 
   async function handleClock(action) {
@@ -130,7 +136,6 @@ async function startLocationWatch() {
     faceRecognition.style.display = 'block';
     await startVideo();
 
-    // Automatically capture and compare after a short delay
     setTimeout(async () => {
       const result = await captureAndCompare();
       if (result.success && result.name) {
@@ -143,7 +148,7 @@ async function startLocationWatch() {
           popup.style.display = 'none';
           clockIn.disabled = false;
           clockOut.disabled = false;
-        }, 3000); // Auto-close popup after 3 seconds
+        }, 3000);
         try {
           const response = await fetch('https://tolon-attendance.proodentit.com/api/attendance/web', {
             method: 'POST',
@@ -164,7 +169,7 @@ async function startLocationWatch() {
           message.textContent = `Error: ${error.message}. Try again!`;
           message.className = 'error';
         }
-      } else {
+      } else if (!result.success && faceMessage.textContent !== 'Camera error. Try again.') {
         faceRecognition.style.display = 'none';
         popupHeader.textContent = 'Verification Unsuccessful';
         popupMessage.textContent = 'Facial recognition failed. Please try again!';
@@ -174,20 +179,18 @@ async function startLocationWatch() {
           popup.style.display = 'none';
           clockIn.disabled = false;
           clockOut.disabled = false;
-        }, 3000); // Auto-close popup after 3 seconds
+        }, 3000);
         if (video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
       }
-    }, 3000); // 3-second delay to allow user to face the camera
+    }, 3000);
   }
 
   document.getElementById('clockIn').addEventListener('click', () => handleClock('clock in'));
   document.getElementById('clockOut').addEventListener('click', () => handleClock('clock out'));
 }
 
-// Start location watch when page loads
 window.onload = startLocationWatch;
 
-// Clean up on page unload
 window.onunload = () => {
   if (watchId) navigator.geolocation.clearWatch(watchId);
   if (video && video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
