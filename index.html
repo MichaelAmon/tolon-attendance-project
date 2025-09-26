@@ -26,16 +26,27 @@
     }
     .popup-header { font-size: 1.5em; font-weight: bold; }
     .popup-footer { font-size: 0.8em; color: #555; margin-top: 10px; }
+    .popup-retry { margin-top: 10px; }
+    .popup-retry button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
     #faceRecognition {
       display: none;
       position: relative;
       margin: 0 auto;
+      width: 100%;
+      max-width: 640px;
+      overflow: hidden;
     }
     #video, #canvas {
       display: block;
       margin: 0 auto;
-      transform: scaleX(-1); /* Flip horizontally */
-      max-width: 100%;
+      width: 100%;
       height: auto;
     }
   </style>
@@ -49,14 +60,15 @@
     <button id="clockOut" disabled>Clock Out</button>
     <p id="message"></p>
     <div id="faceRecognition">
-      <video id="video" width="640" height="480" autoplay></video>
-      <canvas id="canvas" width="640" height="480"></canvas>
+      <video id="video" autoplay></video>
+      <canvas id="canvas"></canvas>
       <p id="faceMessage"></p>
     </div>
     <div id="popup" class="popup">
       <div class="popup-header" id="popupHeader"></div>
       <div id="popupMessage"></div>
       <div class="popup-footer" id="popupFooter"></div>
+      <div class="popup-retry" id="popupRetry"></div>
     </div>
   </div>
   <script src="script.js"></script>
