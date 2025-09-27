@@ -73,6 +73,8 @@ async function startLocationWatch() {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
       video.srcObject = stream;
       video.play();
+      // Un-mirror the video feed
+      video.style.transform = 'scaleX(-1)';
       faceMessage.textContent = 'Please face the camera...';
     } catch (err) {
       console.error('Camera/video error:', err);
@@ -95,19 +97,6 @@ async function startLocationWatch() {
     await startVideo();
   };
 
-  // Updated function to use CompreFace API for face validation
-  async function captureAndCompare() {
-    const displaySize = { width: video.videoWidth, height: video.videoHeight };
-    const canvas = document.createElement('canvas');
-    canvas.width = 800; // Adjust based on IMG_LENGTH_LIMIT (1000)
-    canvas.height = 600;
-    const context = canvas.getContext('2d');
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const imageData = canvas.toDataURL('image/jpeg').split(',')[1]; // Base64 without prefix
-    const subjectId = await validateFace(imageData);
-    return { success: !!subjectId, name: subjectId ? `User_${subjectId}` : null };
-  }
-
   // Function to validate face using CompreFace API
   async function validateFace(imageData) {
     const apiKey = '4f4766d9-fc3b-436a-b24e-f57851a1c865'; // Your API key
@@ -123,13 +112,27 @@ async function startLocationWatch() {
       });
       const result = await response.json();
       if (result.result && result.result.length > 0) {
-        return result.result[0].subject; // Returns the matched Subject ID
+        return result.result[0].subject; // Returns the matched Subject Name
       }
       return null; // No match found
     } catch (error) {
       console.error('Face recognition error:', error);
       return null;
     }
+  }
+
+  // Updated function to capture and compare using CompreFace
+  async function captureAndCompare() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 800; // Adjusted size within IMG_LENGTH_LIMIT (1000)
+    canvas.height = 600;
+    const context = canvas.getContext('2d');
+    // Flip the context to match the un-mirrored video
+    context.scale(-1, 1);
+    context.drawImage(video, -canvas.width, 0, canvas.width, canvas.height); // Draw from the right
+    const imageData = canvas.toDataURL('image/jpeg').split(',')[1]; // Base64 without prefix
+    const subjectId = await validateFace(imageData);
+    return { success: !!subjectId, name: subjectId ? subjectId : null }; // Return the Subject Name directly
   }
 
   async function handleClock(action) {
@@ -178,43 +181,9 @@ async function startLocationWatch() {
               latitude,
               longitude,
               timestamp: new Date().toISOString(),
-              subjectId: result.name.replace('User_', '') // Extract Subject ID
+              subjectId: result.name // Use the Subject Name directly
             })
           });
           const data = await response.json();
           if (!data.success) {
-            message.textContent = data.message;
-            message.className = 'error';
-          }
-        } catch (error) {
-          message.textContent = `Error: ${error.message}. Try again!`;
-          message.className = 'error';
-        }
-      } else {
-        faceRecognition.style.display = 'none';
-        popupHeader.textContent = 'Verification Unsuccessful';
-        popupMessage.textContent = 'Facial recognition failed. Please try again!';
-        popupFooter.textContent = `Clocked ${action.replace(' ', '')} Date: ${new Date().toLocaleDateString()}`;
-        popup.style.display = 'block';
-        setTimeout(() => {
-          popup.style.display = 'none';
-          clockIn.disabled = false;
-          clockOut.disabled = false;
-        }, 5000);
-        if (video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
-      }
-    }, 3000);
-  }
-
-  document.getElementById('clockIn').addEventListener('click', () => handleClock('clock in'));
-  document.getElementById('clockOut').addEventListener('click', () => handleClock('clock out'));
-}
-
-// Ensure script runs when page loads
-window.onload = startLocationWatch;
-
-window.onunload = () => {
-  if (watchId) navigator.geolocation.clearWatch(watchId);
-  if (video && video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
-};
-
+            message.textContent =
