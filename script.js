@@ -124,8 +124,8 @@ async function startLocationWatch() {
   // Updated function to capture and compare using CompreFace
   async function captureAndCompare() {
     const canvas = document.createElement('canvas');
-    canvas.width = 800; // Adjusted size within IMG_LENGTH_LIMIT (1000)
-    canvas.height = 600;
+    canvas.width = 640; // Reverted to original size
+    canvas.height = 480;
     const context = canvas.getContext('2d');
     // Flip the context to match the un-mirrored video
     context.scale(-1, 1);
@@ -206,7 +206,7 @@ async function startLocationWatch() {
         }, 5000);
         if (video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
       }
-    }, 7000); // Increased delay to 7 seconds for better capture
+    }, 3000); // Reverted to original 3-second delay
   }
 
   document.getElementById('clockIn').addEventListener('click', () => handleClock('clock in'));
