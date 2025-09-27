@@ -68,53 +68,17 @@ async function startLocationWatch() {
     clockOut.disabled = true;
   }
 
-  async function loadWeightsWithRetry(retries = 5, delayMs = 5000) {
-    if (typeof faceapi === 'undefined') {
-      console.error('face-api.js library not loaded');
-      diagnostic.textContent = 'Error: face-api.js library not loaded. Check network or script tag.';
-      return false;
-    }
-    for (let i = 0; i < retries; i++) {
-      try {
-        console.log(`Attempt ${i + 1} to load weights from /weights`);
-        diagnostic.textContent = `Loading weights (Attempt ${i + 1}/${retries})...`;
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri('/weights'),
-          faceapi.nets.faceLandmark68Net.loadFromUri('/weights'),
-          faceapi.nets.faceRecognitionNet.loadFromUri('/weights')
-        ]);
-        console.log('Weights loaded successfully');
-        diagnostic.textContent = 'Weights loaded successfully';
-        return true;
-      } catch (err) {
-        console.error(`Weights loading attempt ${i + 1} failed:`, err);
-        diagnostic.textContent = `Weights load failed (Attempt ${i + 1}/${retries}): ${err.message}`;
-        if (i === retries - 1) {
-          return false;
-        }
-        await new Promise(resolve => setTimeout(resolve, delayMs)); // Increased delay to 5 seconds
-      }
-    }
-  }
-
   async function startVideo() {
     try {
-      if (typeof faceapi === 'undefined') {
-        throw new Error('face-api.js library not available');
-      }
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
       video.srcObject = stream;
       video.play();
-      const weightsLoaded = await loadWeightsWithRetry();
-      if (!weightsLoaded) {
-        throw new Error('Failed to load recognition models after multiple attempts');
-      }
       faceMessage.textContent = 'Please face the camera...';
     } catch (err) {
       console.error('Camera/video error:', err);
       faceMessage.textContent = 'Camera error. Try again.';
       popupHeader.textContent = 'Verification Unsuccessful';
-      popupMessage.textContent = `Camera error. Try again. Details: ${err.name} - ${err.message}. <a href="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/weights" download>Download weights</a> and upload to /weights folder on server, or check network.`;
+      popupMessage.textContent = `Camera error. Try again. Details: ${err.name} - ${err.message}.`;
       popupFooter.textContent = `Clocked In/Out Date: ${new Date().toLocaleDateString()}`;
       popupRetry.innerHTML = '<button onclick="retryCamera()">Retry Camera</button>';
       popup.style.display = 'block';
@@ -131,37 +95,41 @@ async function startLocationWatch() {
     await startVideo();
   };
 
+  // Updated function to use CompreFace API for face validation
   async function captureAndCompare() {
-    if (typeof faceapi === 'undefined') {
-      faceMessage.textContent = 'Face recognition library unavailable.';
-      return { success: false, name: null };
-    }
     const displaySize = { width: video.videoWidth, height: video.videoHeight };
-    faceapi.matchDimensions(canvas, displaySize);
-    const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors();
-    if (detections.length === 0) {
-      faceMessage.textContent = 'No face detected. Try again!';
-      return { success: false, name: null };
+    const canvas = document.createElement('canvas');
+    canvas.width = 640; // Adjust based on IMG_LENGTH_LIMIT (1000)
+    canvas.height = 480;
+    const context = canvas.getContext('2d');
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = canvas.toDataURL('image/jpeg').split(',')[1]; // Base64 without prefix
+    const subjectId = await validateFace(imageData);
+    return { success: !!subjectId, name: subjectId ? `User_${subjectId}` : null };
+  }
+
+  // Function to validate face using CompreFace API
+  async function validateFace(imageData) {
+    const apiKey = '4f4766d9-fc3b-436a-b24e-f57851a1c865'; // Your API key
+    const url = 'http://145.223.33.154:8081/api/v1/recognition/recognize'; // Your server IP and port
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ image: imageData }),
+      });
+      const result = await response.json();
+      if (result.result && result.result.length > 0) {
+        return result.result[0].subject; // Returns the matched Subject ID
+      }
+      return null; // No match found
+    } catch (error) {
+      console.error('Face recognition error:', error);
+      return null;
     }
-    const userFaceDescriptor = detections[0].descriptor;
-    const userMap = {
-      'user1': 'John Doe',
-      'user2': 'Jane Smith'
-    };
-    const response = await fetch('https://tolon-attendance.proodentit.com/api/attendance/getFaceDescriptor', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: Object.keys(userMap).find(key => userMap[key] === 'John Doe') || 'user1' })
-    });
-    const data = await response.json();
-    if (!data.success || !data.descriptor) {
-      faceMessage.textContent = 'No registered face found.';
-      return { success: false, name: null };
-    }
-    const registeredDescriptor = new Float32Array(data.descriptor);
-    const distance = faceapi.euclideanDistance(userFaceDescriptor, registeredDescriptor);
-    const username = Object.keys(userMap).find(key => data.descriptor === faceDescriptors[key]);
-    return { success: distance < 0.6, name: username ? userMap[username] : null };
   }
 
   async function handleClock(action) {
@@ -209,7 +177,8 @@ async function startLocationWatch() {
               action,
               latitude,
               longitude,
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
+              subjectId: result.name.replace('User_', '') // Extract Subject ID
             })
           });
           const data = await response.json();
@@ -241,13 +210,8 @@ async function startLocationWatch() {
   document.getElementById('clockOut').addEventListener('click', () => handleClock('clock out'));
 }
 
-// Ensure faceapi is loaded before initializing
-if (typeof faceapi !== 'undefined') {
-  window.onload = startLocationWatch;
-} else {
-  console.error('face-api.js failed to load. Check network or script tag.');
-  document.getElementById('diagnostic').textContent = 'Error: face-api.js failed to load. Check network or script tag.';
-}
+// Ensure script runs when page loads
+window.onload = startLocationWatch;
 
 window.onunload = () => {
   if (watchId) navigator.geolocation.clearWatch(watchId);
