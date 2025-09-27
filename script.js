@@ -99,8 +99,8 @@ async function startLocationWatch() {
   async function captureAndCompare() {
     const displaySize = { width: video.videoWidth, height: video.videoHeight };
     const canvas = document.createElement('canvas');
-    canvas.width = 640; // Adjust based on IMG_LENGTH_LIMIT (1000)
-    canvas.height = 480;
+    canvas.width = 800; // Adjust based on IMG_LENGTH_LIMIT (1000)
+    canvas.height = 600;
     const context = canvas.getContext('2d');
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     const imageData = canvas.toDataURL('image/jpeg').split(',')[1]; // Base64 without prefix
@@ -217,3 +217,4 @@ window.onunload = () => {
   if (watchId) navigator.geolocation.clearWatch(watchId);
   if (video && video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
 };
+
