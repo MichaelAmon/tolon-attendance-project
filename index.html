@@ -72,24 +72,6 @@
     </div>
     <div id="diagnostic"></div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.min.js"></script>
-  <script>
-    // Fallback if CDN fails
-    if (typeof faceapi === 'undefined') {
-      document.getElementById('diagnostic').textContent = 'Error: CDN failed. Attempting to load local face-api.min.js...';
-      const fallbackScript = document.createElement('script');
-      fallbackScript.src = '/face-api.min.js';
-      fallbackScript.onload = () => {
-        document.getElementById('diagnostic').textContent = 'Local face-api.min.js loaded successfully.';
-        console.log('Local face-api.min.js loaded');
-      };
-      fallbackScript.onerror = () => {
-        document.getElementById('diagnostic').textContent = 'Error: Local face-api.min.js failed to load. <a href="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.min.js" download>Download face-api.min.js</a> and upload to server root.';
-        console.error('Local face-api.min.js failed to load');
-      };
-      document.head.appendChild(fallbackScript);
-    }
-  </script>
   <script src="script.js"></script>
 </body>
 </html>
