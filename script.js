@@ -186,4 +186,37 @@ async function startLocationWatch() {
           });
           const data = await response.json();
           if (!data.success) {
-            message.textContent =
+            message.textContent = data.message;
+            message.className = 'error';
+          }
+        } catch (error) {
+          message.textContent = `Error: ${error.message}. Try again!`;
+          message.className = 'error';
+        }
+      } else {
+        faceRecognition.style.display = 'none';
+        popupHeader.textContent = 'Verification Unsuccessful';
+        popupMessage.textContent = 'Facial recognition failed. Please try again!';
+        popupFooter.textContent = `Clocked ${action.replace(' ', '')} Date: ${new Date().toLocaleDateString()}`;
+        popup.style.display = 'block';
+        setTimeout(() => {
+          popup.style.display = 'none';
+          clockIn.disabled = false;
+          clockOut.disabled = false;
+        }, 5000);
+        if (video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
+      }
+    }, 7000); // Increased delay to 7 seconds for better capture
+  }
+
+  document.getElementById('clockIn').addEventListener('click', () => handleClock('clock in'));
+  document.getElementById('clockOut').addEventListener('click', () => handleClock('clock out'));
+}
+
+// Ensure script runs when page loads
+window.onload = startLocationWatch;
+
+window.onunload = () => {
+  if (watchId) navigator.geolocation.clearWatch(watchId);
+  if (video && video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
+};
