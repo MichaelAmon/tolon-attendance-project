@@ -4,6 +4,9 @@
        { name: 'Nyankpala', lat: 9.404691157748209, long: -0.9838639320946208, radius: 0.15 }
      ];
 
+     const BASE_URL = 'https://tolon-attendance.proodentit.com:3001'; // Update to :443 if proxied
+     const COMPRE_FACE_URL = 'http://145.223.33.154:8081';
+
      function getDistance(lat1, lon1, lat2, lon2) {
        const R = 6371;
        const dLat = toRad(lat2 - lat1);
@@ -105,7 +108,7 @@
 
        async function validateFace(imageData) {
          const apiKey = '4f4766d9-fc3b-436a-b24e-f57851a1c865';
-         const url = 'https://tolon-attendance.proodentit.com:3001/api/proxy/face-recognition';
+         const url = `${BASE_URL}/api/proxy/face-recognition`;
          try {
            console.log('Fetching CompreFace:', url);
            const response = await fetch(url, {
@@ -174,7 +177,7 @@
              const latitude = parseFloat(latStr);
              const longitude = parseFloat(lonStr);
              try {
-               const response = await fetch('https://tolon-attendance.proodentit.com:3001/api/attendance/web', {
+               const response = await fetch(`${BASE_URL}/api/attendance/web`, {
                  method: 'POST',
                  headers: { 'Content-Type': 'application/json' },
                  body: JSON.stringify({
