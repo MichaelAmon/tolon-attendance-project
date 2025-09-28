@@ -97,7 +97,7 @@ const express = require('express');
 
      app.post('/api/proxy/face-recognition', async (req, res) => {
        try {
-         const response = await fetch('http://server.proodentit.com:8081/api/v1/recognition/recognize', {
+         const response = await fetch('http://145.223.33.154:8081/api/v1/recognition/recognize', {
            method: 'POST',
            headers: {
              'x-api-key': '4f4766d9-fc3b-436a-b24e-f57851a1c865',
