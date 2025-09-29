@@ -1,0 +1,10 @@
+[phases.setup]
+nixPkgs = ['nodejs-18_x']
+
+[phases.install]
+cmds = [
+  "cd server && npm install --omit=dev"
+]
+
+[phases.runtime]
+cmds = ["cd server && node index.js"]
