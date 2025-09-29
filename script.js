@@ -110,4 +110,127 @@ async function startLocationWatch() {
       const response = await fetch(url, {
         method: 'POST',
         headers: {
-          'x-api-key
+          'x-api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ image: imageData }),
+        mode: 'cors',
+        credentials: 'omit'
+      });
+      const result = await response.json();
+      console.log('Proxy API Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+        body: result
+      });
+      if (result.result && result.result.length > 0) {
+        if (result.result[0].similarity > 0.6) {
+          return result.result[0].subject;
+        } else {
+          console.log('Low similarity:', result.result[0].similarity);
+          return { error: 'Low similarity detected' };
+        }
+      }
+      return { error: 'No matching face found' };
+    } catch (error) {
+      console.error('Face recognition proxy error:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack,
+        url: url,
+        apiKeyIncluded: !!apiKey,
+        fetchOptions: {
+          method: 'POST',
+          headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
+          mode: 'cors',
+          credentials: 'omit'
+        }
+      });
+      return { error: `API error: Failed to fetch - ${error.message}` };
+    }
+  }
+
+  async function getUserDescriptor(username) {
+    const response = await fetch('https://tolon-attendance.proodentit.com:3001/api/attendance/getFaceDescriptor', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username })
+    });
+    const result = await response.json();
+    return result.success ? result.descriptor : null;
+  }
+
+  async function captureAndCompare() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 480;
+    const context = canvas.getContext('2d');
+    context.scale(-1, 1);
+    context.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+    const imageData = canvas.toDataURL('image/jpeg').split(',')[1];
+    const result = await validateFace(imageData);
+    if (typeof result === 'string') {
+      const descriptor = await getUserDescriptor(result);
+      if (descriptor) {
+        return { success: true, name: result, descriptor };
+      }
+    }
+    return { success: false, error: result.error || 'Facial recognition failed' };
+  }
+
+  async function handleClock(action) {
+    const status = document.getElementById('status');
+    const location = document.getElementById('location');
+    const clockIn = document.getElementById('clockIn');
+    const clockOut = document.getElementById('clockOut');
+    const message = document.getElementById('message');
+    const faceRecognition = document.getElementById('faceRecognition');
+
+    const [latStr, lonStr] = location.textContent.replace('Location: ', '').split(', ');
+    const latitude = parseFloat(latStr);
+    const longitude = parseFloat(lonStr);
+    if (isNaN(latitude) || isNaN(longitude)) {
+      message.textContent = 'Location not loaded yet. Try again!';
+      message.className = 'error';
+      return;
+    }
+    status.textContent = `Processing ${action}...`;
+    clockIn.disabled = true;
+    clockOut.disabled = true;
+    faceRecognition.style.display = 'block';
+    await startVideo();
+
+    setTimeout(async () => {
+      const faceMessage = document.getElementById('faceMessage');
+      if (faceMessage.textContent === 'Camera error. Try again.') return;
+      const result = await captureAndCompare();
+      if (result.success && result.name) {
+        faceRecognition.style.display = 'none';
+        try {
+          const response = await fetch('https://tolon-attendance.proodentit.com:3001/api/attendance/web', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action,
+              latitude,
+              longitude,
+              timestamp: new Date().toISOString(),
+              subjectId: result.name
+            })
+          });
+          const data = await response.json();
+          if (data.success) {
+            popupHeader.textContent = 'Verification Successful';
+            popupMessage.textContent = `Thank you ${result.name}, you have ${action} successfully at ${new Date().toLocaleTimeString()}`;
+            popupFooter.textContent = `${new Date().toLocaleDateString('en-US', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+            popup.style.display = 'block';
+          } else {
+            popupHeader.textContent = 'Verification Unsuccessful';
+            popupMessage.textContent = data.message || 'Failed to log attendance. Please try again!';
+            popupFooter.textContent = `${new Date().toLocaleDateString('en-US', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+            popupRetry.innerHTML = '<button onclick="retryAttendance()">Retry</button>';
+            popup.style.display = 'block';
+          }
+        } catch (error) {
+          popupHeader.textContent = 'Verification Unsuccessful
