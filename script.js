@@ -233,4 +233,40 @@ async function startLocationWatch() {
             popup.style.display = 'block';
           }
         } catch (error) {
-          popupHeader.textContent = 'Verification Unsuccessful
+          popupHeader.textContent = 'Verification Unsuccessful';
+          popupMessage.textContent = `Server error: ${error.message}. Please try again!`;
+          popupFooter.textContent = `${new Date().toLocaleDateString('en-US', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+          popupRetry.innerHTML = '<button onclick="retryAttendance()">Retry</button>';
+          popup.style.display = 'block';
+        }
+      } else {
+        faceRecognition.style.display = 'none';
+        popupHeader.textContent = 'Verification Unsuccessful';
+        popupMessage.textContent = result.error || 'Facial recognition failed. Please try again!';
+        popupFooter.textContent = `${new Date().toLocaleDateString('en-US', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+        popupRetry.innerHTML = '<button onclick="retryAttendance()">Retry</button>';
+        popup.style.display = 'block';
+      }
+      setTimeout(() => {
+        popup.style.display = 'none';
+        clockIn.disabled = false;
+        clockOut.disabled = false;
+      }, 5000);
+    }, 3000);
+  }
+
+  window.retryAttendance = () => {
+    popup.style.display = 'none';
+    handleClock(popupMessage.textContent.includes('clock in') ? 'clock in' : 'clock out');
+  };
+
+  document.getElementById('clockIn').addEventListener('click', () => handleClock('clock in'));
+  document.getElementById('clockOut').addEventListener('click', () => handleClock('clock out'));
+}
+
+window.onload = startLocationWatch;
+
+window.onunload = () => {
+  if (watchId) navigator.geolocation.clearWatch(watchId);
+  if (video && video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
+};
