@@ -238,7 +238,7 @@
 
      window.onload = startLocationWatch;
 
-     window.onunload = () => {
-       if (watchId) navigator.geolocation.clearWatch(watchId);
-       if (video && video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
-     };
+    window.addEventListener('beforeunload', () => {
+  if (watchId) navigator.geolocation.clearWatch(watchId);
+  if (video && video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
+});
