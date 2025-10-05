@@ -1,9 +1,13 @@
-FROM node:18-alpine
+providers = ["node"]
 
-WORKDIR /app
+[phases.setup]
+nixPkgs = ["nodejs-18_x"]
 
-COPY . /app
+[phases.install]
+cmds = ["npm install --omit=dev"]
 
-RUN cd server && npm install
+[phases.build]
+cmds = []  # Leave empty if no build script
 
-CMD ["node", "server/index.js"]
+[start]
+cmd = "node server/index.js"
