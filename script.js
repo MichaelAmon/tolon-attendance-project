@@ -1,7 +1,8 @@
 // Office locations
 const OFFICE_LOCATIONS = [
   { name: 'Head Office', lat: 9.429241474535132, long: -1.0533786340817441, radius: 0.15 },
-  { name: 'Nyankpala', lat: 9.404691157748209, long: -0.9838639320946208, radius: 0.15 }
+  { name: 'Nyankpala', lat: 9.404691157748209, long: -0.9838639320946208, radius: 0.15 },
+  { name: 'Accra office', lat: 5.790586353761225, long: -0.15862287743592557, radius: 0.15 }
 ];
 
 function getDistance(lat1, lon1, lat2, lon2) {
@@ -104,8 +105,8 @@ async function startLocationWatch() {
   };
 
   async function validateFace(imageData) {
-    const apiKey = '4f4766d9-fc3b-436a-b24e-f57851a1c865'; // Should be moved to .env or fetched from backend
-    const url = 'https://tolon-attendance.proodentit.com:3001/api/proxy/face-recognition';
+    const apiKey = '4f4766d9-fc3b-436a-b24e-f57851a1c865';
+    const url = '/api/proxy/face-recognition';
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -151,16 +152,6 @@ async function startLocationWatch() {
     }
   }
 
-  async function getUserDescriptor(username) {
-    const response = await fetch('https://tolon-attendance.proodentit.com:3001/api/attendance/getFaceDescriptor', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username })
-    });
-    const result = await response.json();
-    return result.success ? result.descriptor : null;
-  }
-
   async function captureAndCompare() {
     const canvas = document.createElement('canvas');
     canvas.width = 640;
@@ -170,13 +161,7 @@ async function startLocationWatch() {
     context.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
     const imageData = canvas.toDataURL('image/jpeg').split(',')[1];
     const result = await validateFace(imageData);
-    if (typeof result === 'string') {
-      const descriptor = await getUserDescriptor(result);
-      if (descriptor) {
-        return { success: true, name: result, descriptor };
-      }
-    }
-    return { success: false, error: result.error || 'Facial recognition failed' };
+    return typeof result === 'string' ? { success: true, name: result } : { success: false, error: result.error };
   }
 
   async function handleClock(action) {
@@ -207,8 +192,11 @@ async function startLocationWatch() {
       const result = await captureAndCompare();
       if (result.success && result.name) {
         faceRecognition.style.display = 'none';
+        const [latStr, lonStr] = location.textContent.replace('Location: ', '').split(', ');
+        const latitude = parseFloat(latStr);
+        const longitude = parseFloat(lonStr);
         try {
-          const response = await fetch('https://tolon-attendance.proodentit.com:3001/api/attendance/web', {
+          const response = await fetch('http://localhost:3001/api/attendance/web', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
